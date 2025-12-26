@@ -65,25 +65,26 @@ async function validateUser(user_id) {
 }
 
 async function saveMessage(msg) {
-  if (!pool) return;
+  if (!pool) return null;
   try {
     const {
-      id,
       live_session_id,
       user_id,
       username,
       message,
       message_type,
-      created_at,
     } = msg;
-    await pool.query(
+    const usernameParam = username ?? '';
+    const [res] = await pool.query(
       `INSERT INTO live_chat_messages_ripplevids 
-       (id, live_session_id, user_id, username, message, message_type, created_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, live_session_id, user_id, username, message, message_type, created_at]
+       (live_session_id, user_id, message, message_type, username, created_at) 
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [live_session_id, user_id ?? null, message, message_type, usernameParam]
     );
+    return res?.insertId ?? null;
   } catch (err) {
     console.error('Error saving message:', err);
+    return null;
   }
 }
 
@@ -115,7 +116,7 @@ function attachToRoom(ws, live_session_id) {
   }
 }
 
-function detachFromRoom(ws) {
+async function detachFromRoom(ws) {
   const meta = clientMeta.get(ws);
   const live_session_id = meta?.live_session_id;
   const username = meta?.username;
@@ -142,8 +143,9 @@ function detachFromRoom(ws) {
     message_type: 'SYSTEM',
     created_at: new Date().toISOString(),
   };
+  const insertId = await saveMessage(sysMsg);
+  if (insertId) sysMsg.id = String(insertId);
   broadcastToRoom(live_session_id, { event: 'system', data: sysMsg });
-  saveMessage(sysMsg);
   // Cleanup empty rooms
   if (room.clients.size === 0) {
     rooms.delete(live_session_id);
@@ -209,8 +211,9 @@ wss.on('connection', (ws) => {
         message_type: 'SYSTEM',
         created_at: new Date().toISOString(),
       };
+      const insertId = await saveMessage(sysMsg);
+      if (insertId) sysMsg.id = String(insertId);
       broadcastToRoom(live_session_id, { event: 'system', data: sysMsg });
-      saveMessage(sysMsg);
       return;
     }
 
@@ -244,8 +247,9 @@ wss.on('connection', (ws) => {
         message_type: 'TEXT',
         created_at: new Date().toISOString(),
       };
+      const insertId = await saveMessage(msg);
+      if (insertId) msg.id = String(insertId);
       broadcastToRoom(live_session_id, { event: 'message', data: msg });
-      saveMessage(msg);
       return;
     }
 
@@ -269,8 +273,9 @@ wss.on('connection', (ws) => {
         message_type: 'TIP',
         created_at: new Date().toISOString(),
       };
+      const insertId = await saveMessage(msg);
+      if (insertId) msg.id = String(insertId);
       broadcastToRoom(live_session_id, { event: 'tip', data: msg });
-      saveMessage(msg);
       return;
     }
 
@@ -289,8 +294,9 @@ wss.on('connection', (ws) => {
         message_type: 'SYSTEM',
         created_at: new Date().toISOString(),
       };
+      const insertId = await saveMessage(msg);
+      if (insertId) msg.id = String(insertId);
       broadcastToRoom(live_session_id, { event: 'system', data: msg });
-      saveMessage(msg);
       return;
     }
 
