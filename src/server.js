@@ -1,8 +1,9 @@
-require('dotenv').config();
-const http = require('http');
-const { WebSocketServer } = require('ws');
-const mysql = require('mysql2/promise');
-const { v4: uuidv4 } = require('uuid');
+import dotenv from 'dotenv';
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
+import mysql from 'mysql2/promise';
+import { v4 as uuidv4 } from 'uuid';
+dotenv.config();
 
 // Configuration
 const PORT = parseInt(process.env.PORT || '3909', 10);
@@ -88,7 +89,7 @@ async function saveMessage(msg) {
 
 function send(ws, payload) {
   try {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(payload));
     }
   } catch (_) {}
